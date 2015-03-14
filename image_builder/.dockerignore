@@ -1,0 +1,6 @@
+rootfs
+*gz
+archives
+*bz2
+.git
+OdroidC1
