@@ -1,0 +1,18 @@
+#!/bin/sh
+exec /host-rootfs/usr/bin/arm-linux-gnueabihf-g++-4.9 \
+	-I/usr/include \
+	-I/usr/include/c++/4.6 \
+	-I/usr/include/c++/4.6/arm-linux-gnueabihf \
+	-fext-numeric-literals \
+	-Wl,-rpath-link=/usr/lib/gcc/arm-linux-gnueabihf/4.6 \
+	-Wl,-rpath-link=/usr/lib/arm-linux-gnueabihf \
+	-Wl,-rpath-link=/lib/arm-linux-gnueabihf \
+	-Wl,-rpath-link=/usr/lib \
+	-Wl,-rpath-link=/lib \
+	-L/usr/lib/gcc/arm-linux-gnueabihf/4.6 \
+	-L/usr/lib/arm-linux-gnueabihf \
+	-L/lib/arm-linux-gnueabihf \
+	-L/usr/lib \
+	-L/lib \
+	"$@"
+
