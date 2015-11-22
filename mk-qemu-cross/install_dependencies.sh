@@ -19,6 +19,7 @@ apt-get install -y --no-install-recommends \
 	build-essential \
 	bwidget \
 	debhelper \
+	dh-python \
 	kmod \
 	libavahi-client-dev \
 	libboost-python-dev \
