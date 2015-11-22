@@ -1,8 +1,5 @@
 #!/bin/sh -ex
 
-# copy resolv.conf from parent host
-cp /host-rootfs/etc/resolv.conf /etc
-
 # add dovetail gpg key
 apt-key adv --keyserver hkp://keys.gnupg.net --recv-key 73571BB9
 
