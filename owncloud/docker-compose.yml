@@ -1,0 +1,32 @@
+postgres:
+  restart: always
+  container_name: OC_postgres
+  build: postgres
+  environment:
+    POSTGRES_PASSWORD: '1p@sSw04d'
+    POSTGRES_USER: 'oc_admin'
+    PGDATA: '/var/lib/postgresql/data/oc'
+  expose:
+    - "5432"
+  volumes:
+    - ./data/postgres:/var/lib/postgresql/data
+
+owncloud:
+  restart: always
+  container_name: OC_owncloud
+  build: owncloud
+  environment:
+    OWNCLOUD_PASSWD: '1p@sSw04d'
+  ports:
+    - "1080:80"
+    - "1443:443"
+  volumes:
+    - ./data/owncloud/data:/DATA/data
+    - ./data/owncloud/apps:/DATA/apps
+    - ./data/owncloud/logs:/DATA/logs
+    - ./data/owncloud/certs:/DATA/certs
+    - ./data/owncloud/config:/DATA/config:ro
+    - ./data/owncloud/tmp:/tmp/nginx
+  links:
+    - postgres
+
