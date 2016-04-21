@@ -79,6 +79,10 @@ EOF
     # add missing devs
     mknod -m 0666 ${ROOTFS}/dev/null c 1 3
     mknod -m 0666 ${ROOTFS}/dev/zero c 1 5
+
+    # remove unneeded packages
+    proot-helper apt-get remove -y xserver-xorg-video-mach64 xserver-xorg-video-nouveau \
+        xserver-xorg-video-r128 xserver-xorg-video-radeon xserver-xorg-video-vesa 
 }
 
 cleanup(){
@@ -98,6 +102,7 @@ cleanup(){
 
 # reuse rootfs if it exists
 if [ -f /data/rootfs.tgz ]; then
+    mkdir -p ${ROOTFS}
     tar xf /data/rootfs.tgz -C ${ROOTFS}
 else
     start_multistrap
