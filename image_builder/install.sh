@@ -1,26 +1,30 @@
 #!/bin/sh -ex
 
-start_debootstrap () {
+start_multistrap(){
     # reusing rootfs
-    if [ -f /data/debootstrap_rootfs.tgz ]; then
+    if [ -f /data/multistrap_rootfs.tgz ]; then
         echo Reusing rootfs
-        rm -rf ${ROOT}
-        mkdir -p ${ROOT}
-        tar xf /data/debootstrap_rootfs.tgz -C ${ROOT}
+        rm -rf ${ROOTFS}
+        mkdir -p ${ROOTFS}
+        tar xf /data/multistrap_rootfs.tgz -C ${ROOTFS}
     else
-        debootstrap --foreign ${DEBOOTSTRAP_ARGS} ${ROOT} ${LOCAL_MIRROR}
-        ${CHROOT} ${ROOT} /debootstrap/debootstrap --second-stage --verbose
-        tar czf /data/debootstrap_rootfs.tgz -C ${ROOT} .
+        # retry as apt-get sometimes fails on fetching archives
+        for i in $(seq 5); do
+            multistrap -f ${CONF} -a ${ARCH} -d ${ROOTFS}  && break || sleep 30; 
+        done
+        proot-helper sh -c "/var/lib/dpkg/info/dash.preinst install && \
+            dpkg --configure -a || dpkg --configure -a"
+        tar czpf /data/multistrap_rootfs.tgz -C ${ROOTFS} .
     fi
 }
 
-setup_etc () {
+setup_etc(){
     #edit hostname
-    echo ${HOSTNAME} > ${ROOT}/etc/hostname
-    echo '127.0.0.1\t'${HOSTNAME} >> ${ROOT}/etc/hosts
+    echo ${HOSTNAME} > ${ROOTFS}/etc/hostname
+    echo '127.0.0.1\t'${HOSTNAME} >> ${ROOTFS}/etc/hosts
 
     # edit network interface
-    cat << EOF > ${ROOT}/etc/network/interfaces
+    cat << EOF > ${ROOTFS}/etc/network/interfaces
 auto lo
 iface lo inet loopback
 
@@ -29,116 +33,82 @@ iface eth0 inet dhcp
 EOF
 }
 
-setup_apt () {
-    cat <<EOF > ${ROOT}/etc/apt/sources.list
-deb ${LOCAL_MIRROR} wheezy main contrib
-deb ${LOCAL_MIRROR} wheezy-updates main contrib
-deb ${LOCAL_MIRROR} wheezy-backports main contrib
-deb http://security.debian.org/ wheezy/updates main contrib
-EOF
-
-    cat <<EOF > ${ROOT}/etc/apt/sources.list.d/machinekit.list
-deb http://deb.dovetail-automata.com wheezy main
+setup_apt(){
+    cat <<EOF > ${ROOTFS}/etc/apt/sources.list.d/machinekit.list
+deb http://deb.machinekit.io/debian jessie main
 EOF
 
     # add public key
-    cp /tmp/dovetail.key ${ROOT}/tmp
-    ${CHROOT} ${ROOT} sh -ex << EOF
-apt-key add /tmp/dovetail.key
-apt-get update
+    cp /tmp/deb.machinekit.io.key ${ROOTFS}/tmp
+    proot-helper sh -ex << EOF
+apt-key add /tmp/deb.machinekit.io.key
 EOF
 
-    rm ${ROOT}/tmp/dovetail.key
+    rm ${ROOTFS}/tmp/deb.machinekit.io.key
 }
 
-disable_daemons () {
-    cat <<EOF > ${ROOT}/usr/sbin/policy-rc.d
+disable_daemons(){
+    cat <<EOF > ${ROOTFS}/usr/sbin/policy-rc.d
 #!/bin/sh
 exit 101
 EOF
-    chmod a+x ${ROOT}/usr/sbin/policy-rc.d
-}
-install_base () {
-    ${CHROOT} ${ROOT} sh -ex << EOF
-export DEBIAN_FRONTEND=noninteractive 
-apt-get -y upgrade
-
-apt-get -y install -t wheezy-backports cython
-
-apt-get install -y keyboard-configuration
-
-# extra packages
-apt-get -y install --no-install-recommends \
-    usbmount rsync ca-certificates locales sudo openssh-server ntp vim-tiny \
-    less xinit xserver-xorg-core xserver-xorg xserver-xorg-input-all \
-    xserver-xorg-input-evdev iceweasel
-
-apt-get -y install xrdp lxde lxde-icon-theme lightdm lightdm-gtk-greeter
-EOF
+    chmod a+x ${ROOTFS}/usr/sbin/policy-rc.d
 }
 
-configure_base () {
+configure_base(){
     # configure usbmount
     sed -i -e 's/""/"-fstype=vfat,flush,gid=plugdev,dmask=0007,fmask=0117"/g' \
-        ${ROOT}/etc/usbmount/usbmount.conf
+        ${ROOTFS}/etc/usbmount/usbmount.conf
 
     # update sudoers
     sed -i "s/%sudo\tALL=(ALL:ALL)/%sudo\tALL=NOPASSWD:/g"  \
-        ${ROOT}/etc/sudoers
+        ${ROOTFS}/etc/sudoers
 
     # fix ssh keys
-    cp /tmp/ssh_gen_host_keys ${ROOT}/etc/init.d/
-    LC_ALL=C LANGUAGE=C LANG=C ${CHROOT} \
-        ${ROOT} insserv /etc/init.d/ssh_gen_host_keys
+    cp /tmp/ssh_gen_host_keys ${ROOTFS}/etc/init.d/
+    LC_ALL=C LANGUAGE=C LANG=C proot-helper insserv /etc/init.d/ssh_gen_host_keys
 
     # add user
-    ${CHROOT} ${ROOT} sh << EOF
+    proot-helper sh << EOF
 adduser --disabled-password --gecos "${DEFUSR}" ${DEFUSR}
 usermod -a -G sudo,staff,kmem,plugdev,adm,dialout,cdrom,audio,video,games,users ${DEFUSR}
 echo -n ${DEFUSR}:${DEFPWD} | chpasswd
 EOF
 
-    # configure NetworkManager
-    sed -i 's/false/true/g' ${ROOT}/etc/NetworkManager/NetworkManager.conf
-
     # update wallpaper
-    mkdir -p ${ROOT}/usr/share/images/desktop-base
-    cp /tmp/debian-mk-wallpaper.svg ${ROOT}/usr/share/images/desktop-base/
-    rm -f ${ROOT}/etc/alternatives/desktop-background
+    mkdir -p ${ROOTFS}/usr/share/images/desktop-base
+    cp /tmp/debian-mk-wallpaper.svg ${ROOTFS}/usr/share/images/desktop-base/
+    rm -f ${ROOTFS}/etc/alternatives/desktop-background
     ln -sf /usr/share/images/desktop-base/debian-mk-wallpaper.svg \
-        ${ROOT}/etc/alternatives/desktop-background
+        ${ROOTFS}/etc/alternatives/desktop-background
     sed -i 's/login-background/debian-mk-wallpaper/g' \
-        ${ROOT}/etc/lightdm/lightdm-gtk-greeter.conf
-}
-cleanup () {
-    # cleanup APT
-    rm -f ${ROOT}/var/lib/apt/lists/* || true
-    LC_ALL=C LANGUAGE=C LANG=C ${CHROOT} ${ROOT} apt-get clean
+        ${ROOTFS}/etc/lightdm/lightdm-gtk-greeter.conf
 
-    # fix APT sources
-    sed -i "s^${LOCAL_MIRROR}^${MIRROR}^g" ${ROOT}/etc/apt/sources.list
+    # add missing devs
+    mknod -m 0666 ${ROOTFS}/dev/null c 1 3
+    mknod -m 0666 ${ROOTFS}/dev/zero c 1 5
+}
+
+cleanup(){
+    # cleanup APT
+    rm -f ${ROOTFS}/var/lib/apt/lists/* || true
+    LC_ALL=C LANGUAGE=C LANG=C proot-helper apt-get clean
 
     # remove our traces
-    rm -f ${ROOT}/etc/resolv.conf
-    echo > ${ROOT}/root/.bash_history
-    rm -f ${ROOT}/usr/sbin/policy-rc.d
+    rm -f ${ROOTFS}/etc/resolv.conf
+    echo > ${ROOTFS}/root/.bash_history
+    rm -f ${ROOTFS}/usr/sbin/policy-rc.d
 }
 
 ######################
 # Install starts here
 ######################
 
-start_debootstrap
-
-# reuse archives
-if [ -d /data/archives ]; then
-    rsync -a /data/archives ${ROOT}/var/cache/apt/
-fi
+start_multistrap
 
 setup_etc
 setup_apt
 disable_daemons
-install_base
 configure_base
 
 # run custom install
@@ -146,14 +116,11 @@ if [ -f /data/${CUSTOM_APP} ]; then
     sh -ex /data/${CUSTOM_APP}
 fi
 
-# save archives
-rsync -a ${ROOT}/var/cache/apt/archives /data
-
 cleanup
 
 # run custom image
 if [ -f /data/${CUSTOM_IMG} ]; then
     sh -ex /data/${CUSTOM_IMG}
 else
-    mv ${ROOT} /data
+    tar czpf /data/rootfs.tgz -C ${ROOTFS} .
 fi

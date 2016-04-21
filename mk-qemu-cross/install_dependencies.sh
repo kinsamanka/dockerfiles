@@ -1,5 +1,13 @@
 #!/bin/sh -ex
 
+# add dovetail gpg key
+apt-key adv --keyserver hkp://keys.gnupg.net --recv-key 73571BB9
+
+# update apt sources
+echo "deb http://deb.dovetail-automata.com wheezy main" \
+	> /etc/apt/sources.list.d/machinekit.list
+apt-get update
+
 # install requisite packages
 apt-get install -y --no-install-recommends \
 	git \
