@@ -1,21 +1,13 @@
 #!/bin/sh -ex
 
 start_multistrap(){
-    # reusing rootfs
-    if [ -f /data/multistrap_rootfs.tgz ]; then
-        echo Reusing rootfs
-        rm -rf ${ROOTFS}
-        mkdir -p ${ROOTFS}
-        tar xf /data/multistrap_rootfs.tgz -C ${ROOTFS}
-    else
-        # retry as apt-get sometimes fails on fetching archives
-        for i in $(seq 5); do
-            multistrap -f ${CONF} -a ${ARCH} -d ${ROOTFS}  && break || sleep 30; 
-        done
-        proot-helper sh -c "/var/lib/dpkg/info/dash.preinst install && \
-            dpkg --configure -a || dpkg --configure -a"
-        tar czpf /data/multistrap_rootfs.tgz -C ${ROOTFS} .
-    fi
+    # retry as apt-get sometimes fails on fetching archives
+    for i in $(seq 5); do
+        multistrap -f ${CONF} -a ${ARCH} -d ${ROOTFS}  && break || sleep 30; 
+    done
+    proot-helper sh -c "/var/lib/dpkg/info/dash.preinst install && \
+        dpkg --configure -a || dpkg --configure -a"
+    tar czpf /data/multistrap_rootfs.tgz -C ${ROOTFS} .
 }
 
 setup_etc(){
@@ -104,12 +96,19 @@ cleanup(){
 # Install starts here
 ######################
 
-start_multistrap
+# reuse rootfs if it exists
+if [ -f /data/rootfs.tgz ]; then
+    tar xf /data/rootfs.tgz -C ${ROOTFS}
+else
+    start_multistrap
 
-setup_etc
-setup_apt
-disable_daemons
-configure_base
+    setup_etc
+    setup_apt
+    disable_daemons
+    configure_base
+
+    tar czpf /data/rootfs.tgz -C ${ROOTFS} .
+fi
 
 # run custom install
 if [ -f /data/${CUSTOM_APP} ]; then
@@ -121,6 +120,4 @@ cleanup
 # run custom image
 if [ -f /data/${CUSTOM_IMG} ]; then
     sh -ex /data/${CUSTOM_IMG}
-else
-    tar czpf /data/rootfs.tgz -C ${ROOTFS} .
 fi
