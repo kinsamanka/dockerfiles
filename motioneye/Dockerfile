@@ -4,7 +4,7 @@ MAINTAINER GP Orcullo
 ENV MOTION_VER 4.0.1
 ADD *.patch /tmp/
 
-RUN apk add --no-cache autoconf automake curl-dev ffmpeg-dev gcc jpeg-dev\
+RUN apk add --no-cache autoconf automake curl-dev ffmpeg-dev gcc jpeg-dev \
 	linux-headers make musl-dev openssl-dev python-dev py-pip \
 	bash curl ffmpeg ffmpeg-libs libcurl libcrypto1.0 libjpeg python \
 	py-setuptools v4l-utils \
@@ -15,7 +15,7 @@ RUN apk add --no-cache autoconf automake curl-dev ffmpeg-dev gcc jpeg-dev\
     && patch -Np1 < /tmp/strerror_r.patch \
     && patch -Np1 < /tmp/pthread.patch \
     && autoreconf -fiv \
-    && ./configure \
+    && ./configure --without-optimizecpu \
     && make \
     && cp motion /usr/bin \
     && cd / \
