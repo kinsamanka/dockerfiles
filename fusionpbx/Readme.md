@@ -10,7 +10,9 @@ Usage
 ```bash
 docker run -d --name fusionpbx \
 	–net=host \
-	-v ${data_dir}:/data -e PGPASSWORD=${postgres_pass} \
+	-v /etc/localtime:/etc/localtime:ro \
+	-v ${data_dir}:/data \
+	-e PGPASSWORD=${postgres_pass} \
 	kinsamanka/fusionpbx 
 ```
 Access FusionPBX through: 

@@ -3,9 +3,10 @@ MAINTAINER GP Orcullo
 
 ENV FP_VER 4.2.2
 
-RUN apk -U add curl freeswitch-flite nginx php7-curl php7-fpm php7-imap \
-	php7-json php7-mcrypt php7-odbc php7-pdo php7-pdo_pgsql php7-pgsql \
-	php7-session php7-sqlite3 php7-xml php7 postgresql supervisor \
+RUN apk add --no-cache curl dnsmasq freeswitch-flite nginx php7-curl php7-fpm \
+	php7-imap php7-json php7-mcrypt php7-odbc php7-pdo php7-pdo_pgsql \
+	php7-pgsql php7-session php7-sqlite3 php7-xml php7 postgresql \
+	supervisor \
     && echo "pid /tmp/nginx.pid;" >> /etc/nginx/nginx.conf \
     && sed -e 's_nobody_nginx_g' \
 	   -e 's_127.0.0.1:9000_/tmp/fpm.sock_g' \
