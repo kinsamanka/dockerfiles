@@ -1,30 +1,16 @@
 FROM alpine:3.6
 MAINTAINER GP Orcullo
 
-ENV MOTION_VER 4.0.1
-ADD *.patch /tmp/
-
-RUN apk add --no-cache autoconf automake curl-dev ffmpeg-dev gcc jpeg-dev \
-	linux-headers make musl-dev openssl-dev python-dev py-pip \
-	bash curl ffmpeg ffmpeg-libs libcurl libcrypto1.0 libjpeg python \
-	py-setuptools v4l-utils \
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories \
+    && apk add --no-cache curl-dev gcc jpeg-dev musl-dev openssl-dev \
+        python-dev py-pip zlib-dev bash curl libcrypto1.0 libssl1.0 motion \
+	python py-setuptools v4l-utils \
     && pip install --upgrade pip motioneye \
-    && cd /tmp \
-    && curl -L https://github.com/Motion-Project/motion/archive/release-${MOTION_VER}.tar.gz | tar xvzf - \
-    && cd motion* \
-    && patch -Np1 < /tmp/strerror_r.patch \
-    && patch -Np1 < /tmp/pthread.patch \
-    && autoreconf -fiv \
-    && ./configure --without-optimizecpu \
-    && make \
-    && cp motion /usr/bin \
-    && cd / \
-    && rm -rf /tmp/* \
-    && apk --purge -v del autoconf automake curl-dev ffmpeg-dev gcc jpeg-dev \
-	linux-headers make musl-dev openssl-dev python-dev py-pip \
+    && apk --purge -v del curl-dev gcc jpeg-dev musl-dev openssl-dev \
+        python-dev py-pip \
     && mkdir /etc/motioneye/ /var/lib/motioneye \
     && cp /usr/share/motioneye/extra/motioneye.conf.sample /etc/motioneye/motioneye.conf \
-    && chown -R operator:nogroup /etc/motioneye /var/lib/motioneye /var/log \
+    && chown -R motion:motion /etc/motioneye /var/lib/motioneye /var/log \
     && chmod a+rw /run /var/run \
     && mkdir -p /data /data.org/conf \
     && chmod 0777 -R /data.org \
@@ -39,7 +25,7 @@ RUN apk add --no-cache autoconf automake curl-dev ffmpeg-dev gcc jpeg-dev \
     && ln -sf /data.org/motioneye /data/motioneye \
     && ln -sf /data.org/log /data/log \
     && touch /data/.ok \
-    && chown -R operator /data 
+    && chown -R operator:motion /data 
 
 VOLUME /data
 
